@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Planner</title>
+    <!-- Google Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar glass-panel">
+            <div class="logo">
+                <i class="fa-solid fa-calendar-check"></i>
+                <span>Planner</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="#tasks" class="nav-item active" data-view="tasks">
+                    <i class="fa-solid fa-list-check"></i> Tasks
+                </a>
+                <a href="#weekly" class="nav-item" data-view="weekly">
+                    <i class="fa-solid fa-calendar-week"></i> Weekly
+                </a>
+                <a href="#monthly" class="nav-item" data-view="monthly">
+                    <i class="fa-solid fa-calendar-days"></i> Monthly
+                </a>
+                <a href="#study" class="nav-item" data-view="study">
+                    <i class="fa-solid fa-stopwatch"></i> Study Tracker
+                </a>
+            </nav>
+            <div class="sidebar-bottom">
+                <button id="theme-toggle" class="glass-button icon-button">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div>
+                    <h1 id="current-date-display">Today</h1>
+                    <p class="subtitle" id="greeting-message">Let's get things done!</p>
+                </div>
+                
+                <div class="header-actions">
+                    <div class="study-time-badge glass-panel" title="Daily Study Time">
+                        <i class="fa-solid fa-book-open" style="color: #3b82f6;"></i>
+                        <span id="daily-study-time">0h 0m</span>
+                    </div>
+
+                    <div class="streak-counter glass-panel" title="Daily Streak">
+                        <i class="fa-solid fa-fire" style="color: #f97316;"></i>
+                        <span id="streak-count" style="font-weight: bold; font-size: 1.1rem; text-shadow: 0 0 10px rgba(249, 115, 22, 0.4);">0</span>
+                    </div>
+
+                    <div class="progress-container glass-panel">
+                        <div class="progress-info">
+                            <span>Daily Progress</span>
+                            <span id="progress-text">0%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="progress-fill"></div>
+                        </div>
+                    </div>
+
+                    <button id="add-task-btn" class="primary-btn glass-button">
+                        <i class="fa-solid fa-plus"></i> New Task
+                    </button>
+                </div>
+            </header>
+
+            <!-- Views Container -->
+            <div id="views-container" class="views-wrapper">
+                
+                <!-- Task Board View -->
+                <section id="view-tasks" class="view-section active">
+                    <div class="task-board">
+                        <div class="task-column">
+                            <h2 class="column-header">To Do <span class="count" id="todo-count">0</span></h2>
+                            <div class="task-list" id="todo-list">
+                                <!-- Tasks rendered via JS -->
+                            </div>
+                        </div>
+                        <div class="task-column">
+                            <h2 class="column-header">Completed <span class="count" id="completed-count">0</span></h2>
+                            <div class="task-list" id="completed-list">
+                                <!-- Tasks rendered via JS -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Weekly View -->
+                <section id="view-weekly" class="view-section hidden">
+                    <h2 class="view-title">Weekly Calendar</h2>
+                    <div class="weekly-grid glass-panel" id="weekly-grid">
+                        <!-- Weekly calendar rendered via JS -->
+                    </div>
+                </section>
+
+                <!-- Monthly View -->
+                <section id="view-monthly" class="view-section hidden">
+                    <div class="monthly-header">
+                        <h2 class="view-title" id="monthly-month-display">Month Year</h2>
+                        <div class="month-nav">
+                            <button id="prev-month" class="glass-button icon-button"><i class="fa-solid fa-chevron-left"></i></button>
+                            <button id="next-month" class="glass-button icon-button"><i class="fa-solid fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+                    <div class="monthly-grid glass-panel">
+                        <div class="weekdays">
+                            <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                        </div>
+                        <div class="days" id="monthly-days">
+                            <!-- Monthly days rendered via JS -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Study Tracker View -->
+                <section id="view-study" class="view-section hidden">
+                    <div class="study-board">
+                        
+                        <!-- Pomodoro Focus Timer -->
+                        <div class="study-panel glass-panel flex-column-item">
+                            <h2 class="column-header"><i class="fa-solid fa-brain"></i> Focus Timer</h2>
+                            
+                            <input type="text" id="pomodoro-task-name" class="task-name-input glass-input" placeholder="What are you studying? (e.g. Physics)" maxlength="40">
+
+                            <div class="focus-timer-container">
+                                <svg class="timer-ring-svg" width="200" height="200">
+                                    <circle class="timer-ring-bg" cx="100" cy="100" r="90"></circle>
+                                    <circle class="timer-ring-progress" id="pomodoro-ring" cx="100" cy="100" r="90"></circle>
+                                </svg>
+                                <div class="timer-display" id="pomodoro-display">25:00</div>
+                            </div>
+                            
+                            <div class="timer-presets">
+                                <button class="preset-btn glass-button active" data-time="25">25m</button>
+                                <button class="preset-btn glass-button" data-time="45">45m</button>
+                                <button class="preset-btn glass-button" data-time="60">60m</button>
+                                <button class="preset-btn glass-button" data-time="custom">Custom</button>
+                            </div>
+
+                            <div class="custom-time-inputs hidden" id="custom-time-container">
+                                <div class="time-input-group">
+                                    <input type="number" id="custom-hours" min="0" max="23" value="0" class="glass-input">
+                                    <label>h</label>
+                                </div>
+                                <div class="time-input-group">
+                                    <input type="number" id="custom-mins" min="0" max="59" value="0" class="glass-input">
+                                    <label>m</label>
+                                </div>
+                                <div class="time-input-group">
+                                    <input type="number" id="custom-secs" min="0" max="59" value="0" class="glass-input">
+                                    <label>s</label>
+                                </div>
+                            </div>
+                            
+                            <div class="timer-controls">
+                                <button id="pomodoro-start" class="primary-btn glass-button"><i class="fa-solid fa-play"></i> Start</button>
+                                <button id="pomodoro-pause" class="glass-button hidden"><i class="fa-solid fa-pause"></i> Pause</button>
+                                <button id="pomodoro-reset" class="glass-button"><i class="fa-solid fa-rotate-right"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Manual Stopwatch -->
+                        <div class="study-panel glass-panel flex-column-item">
+                            <h2 class="column-header"><i class="fa-solid fa-stopwatch"></i> Stopwatch</h2>
+                            
+                            <input type="text" id="stopwatch-task-name" class="task-name-input glass-input" placeholder="What are you studying? (e.g. Coding)" maxlength="40">
+
+                            <div class="stopwatch-container">
+                                <div class="timer-display" id="stopwatch-display">00:00:00</div>
+                            </div>
+                            
+                            <div class="timer-controls">
+                                <button id="stopwatch-start" class="primary-btn glass-button"><i class="fa-solid fa-play"></i> Start</button>
+                                <button id="stopwatch-pause" class="glass-button hidden"><i class="fa-solid fa-pause"></i> Pause</button>
+                                <button id="stopwatch-reset" class="glass-button"><i class="fa-solid fa-rotate-right"></i></button>
+                            </div>
+                        </div>
+
+                    </div>
+                    
+                    <!-- V6 Study Analytics -->
+                    <div class="study-analytics-panel glass-panel">
+                        <div class="analytics-header">
+                            <h2 class="column-header"><i class="fa-solid fa-chart-pie"></i> Study History & Analytics</h2>
+                        </div>
+                        <div class="analytics-list" id="analytics-list">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- V5/V6 Immersive Focus Mode Overlay -->
+    <div id="focus-mode-overlay" class="hidden">
+        <div class="focus-mode-content">
+            <h2 id="focus-motivational-text">Deep work in progress. Stay focused.</h2>
+            
+            <div class="focus-overlay-timer-wrapper">
+                <svg class="focus-ring-svg" width="400" height="400">
+                    <defs>
+                        <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#8b5cf6" />
+                            <stop offset="100%" stop-color="#3b82f6" />
+                        </linearGradient>
+                    </defs>
+                    <circle class="focus-ring-bg" cx="200" cy="200" r="180"></circle>
+                    <circle class="focus-ring-progress" id="focus-overlay-ring" cx="200" cy="200" r="180" stroke="url(#ringGradient)"></circle>
+                </svg>
+                <div class="focus-timer-large" id="focus-timer-display">25:00</div>
+            </div>
+            
+            <div class="focus-controls">
+                <button id="focus-end-session" class="glass-button"><i class="fa-solid fa-xmark"></i> End Session</button>
+                <button id="focus-give-up" class="glass-button hidden" style="color: var(--priority-high); border-color: var(--priority-high-bg);"><i class="fa-solid fa-flag"></i> Give Up</button>
+            </div>
+        </div>
+        
+        <div id="focus-completion-screen" class="hidden">
+            <i class="fa-solid fa-trophy completion-icon"></i>
+            <h2>Focus Session Completed!</h2>
+            <p id="focus-completed-time" style="font-size: 1.25rem; font-weight:500; color:#e2e8f0;">You studied strictly for <span>--</span>.</p>
+            <div class="focus-completion-actions">
+                <button id="focus-start-another" class="primary-btn glass-button">Start Another</button>
+                <button id="focus-close-overlay" class="glass-button">Finish</button>
+            </div>
+        </div>
+        
+        <!-- V8 Motivational Give Up Popup -->
+        <div id="motivational-popup" class="hidden glass-panel">
+            <h2>Come on, you can do this!</h2>
+            <p id="motivational-quote-text" style="font-style: italic; font-weight: 300; font-size: 1.1rem; color: #cbd5e1; max-width: 400px; text-align: center;">"Just a little longer - you've got this."</p>
+            <div class="focus-controls" style="margin-top: 1rem;">
+                <button id="focus-continue-session" class="primary-btn glass-button">Continue Focus</button>
+                <button id="focus-give-up-anyway" class="glass-button" style="color: var(--priority-high); border-color: var(--priority-high-bg);">Give Up Anyway</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Clock -->
+    <div id="live-clock" class="glass-panel live-clock-widget hidden">
+        <i class="fa-regular fa-clock"></i>
+        <span id="live-clock-text">--:--:--</span>
+    </div>
+
+    <!-- Task Modal -->
+    <div id="task-modal" class="modal-backdrop hidden">
+        <div class="modal glass-panel">
+            <div class="modal-header">
+                <h3 id="modal-title">Add New Task</h3>
+                <button id="close-modal-btn" class="icon-button"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="task-form">
+                <input type="hidden" id="task-id">
+                <div class="form-group">
+                    <label for="task-title">Title</label>
+                    <input type="text" id="task-title" required placeholder="What needs to be done?">
+                </div>
+                <div class="form-group">
+                    <label for="task-desc">Description</label>
+                    <textarea id="task-desc" rows="3" placeholder="Add some details..."></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="task-date">Due Date</label>
+                        <input type="date" id="task-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="task-time">Time</label>
+                        <input type="time" id="task-time">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Priority</label>
+                    <div class="priority-selector">
+                        <label class="priority-option">
+                            <input type="radio" name="priority" value="low" checked>
+                            <span class="badge low">Low</span>
+                        </label>
+                        <label class="priority-option">
+                            <input type="radio" name="priority" value="medium">
+                            <span class="badge medium">Medium</span>
+                        </label>
+                        <label class="priority-option">
+                            <input type="radio" name="priority" value="high">
+                            <span class="badge high">High</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="cancel-task-btn" class="glass-button">Cancel</button>
+                    <button type="submit" class="primary-btn glass-button">Save Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
