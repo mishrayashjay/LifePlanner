@@ -28,7 +28,11 @@ const DOM = {
     taskTitleInput: document.getElementById('task-title'),
     taskDescInput: document.getElementById('task-desc'),
     taskDateInput: document.getElementById('task-date'),
-    taskTimeInput: document.getElementById('task-time'),
+    taskDurationInput: document.getElementById('task-duration'),
+    taskDurationUnit: document.getElementById('task-duration-unit'),
+    
+    // Day Start Time
+    dayStartTimeInput: document.getElementById('day-start-time'),
     
     // Monthly/Weekly
     monthlyMonthDisplay: document.getElementById('monthly-month-display'),
@@ -91,7 +95,7 @@ const DOM = {
 
 // --- State Management ---
 let state = {
-    tasks: JSON.parse(localStorage.getItem('antiplanner_tasks') || '[]'),
+    tasks: [], // Tasks will be loaded by loadTasksFromLocalStorage
     theme: localStorage.getItem('antiplanner_theme') || 'light',
     streak: parseInt(localStorage.getItem('antiplanner_streak') || 0, 10),
     currentDate: new Date(),
@@ -130,6 +134,7 @@ const MOTIVATIONAL_QUOTES = [
 
 function init() {
     initTheme();
+    loadTasksFromLocalStorage(); // Restore tasks when page loads
     updateHeaderDate();
     initEventListeners();
     evaluateStreak();
@@ -141,6 +146,12 @@ function init() {
     renderAnalytics();
     updateProgress();
     requestNotificationPermission();
+    
+    // Load Day Start Time from Local Storage
+    const savedStartTime = localStorage.getItem('antiplanner_start_time') || '08:00';
+    DOM.dayStartTimeInput.value = savedStartTime;
+    // Set up Auto-Scheduling
+    recalculateSchedule();
     
     // Feature initializations
     DOM.liveClockWidget.classList.remove('hidden');
@@ -204,13 +215,105 @@ function switchView(viewId) {
 }
 
 // --- Data Management ---
-function saveTasks() {
+function saveTasksToLocalStorage() {
     localStorage.setItem('antiplanner_tasks', JSON.stringify(state.tasks));
+}
+
+function loadTasksFromLocalStorage() {
+    const savedTasks = localStorage.getItem('antiplanner_tasks');
+    if (savedTasks) {
+        try {
+            state.tasks = JSON.parse(savedTasks);
+        } catch (e) {
+            console.error("Error parsing tasks from local storage", e);
+            state.tasks = [];
+        }
+    } else {
+        state.tasks = [];
+    }
+}
+
+function saveTasks() {
+    recalculateSchedule(); // Recalculate schedule before saving and rendering
+    saveTasksToLocalStorage();
     evaluateStreak();
     updateProgress();
     renderTasks();
     renderMonthlyCalendar();
     renderWeeklyCalendar();
+}
+
+// --- Schedule Recalculation ---
+function parseTimeStr(timeStr) {
+    if (!timeStr) return { h: 8, m: 0 };
+    const parts = timeStr.split(':');
+    return { h: parseInt(parts[0], 10), m: parseInt(parts[1], 10) };
+}
+
+function formatTimeStr(h, m) {
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hours = h % 12 || 12;
+    const minutes = m.toString().padStart(2, '0');
+    return `${hours}:${minutes} ${period}`;
+}
+
+function formatDurationForDisplay(mins) {
+    if (typeof mins !== 'number' || isNaN(mins) || mins <= 0) return '';
+    if (mins >= 60 && mins % 60 === 0) {
+        return `${mins / 60}h`;
+    } else if (mins > 60) {
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return `${h}h ${m}m`;
+    }
+    return `${mins}m`;
+}
+
+function recalculateSchedule() {
+    const dayStartStr = localStorage.getItem('antiplanner_start_time') || '08:00';
+    const baseStartTime = parseTimeStr(dayStartStr);
+    
+    // Group tasks by date
+    const tasksByDate = {};
+    state.tasks.forEach(t => {
+        if (!tasksByDate[t.date]) tasksByDate[t.date] = [];
+        tasksByDate[t.date].push(t);
+    });
+
+    // Sort and calculate for each date
+    for (const date in tasksByDate) {
+        // We only calculate auto-schedule for non-completed tasks in order of creation
+        // Completed Tasks retain whatever time they were completed or scheduled at.
+        // Actually, let's keep it simple: auto-schedule all uncompleted tasks sequentially.
+        const uncompleted = tasksByDate[date].filter(t => !t.completed);
+        
+        let currentH = baseStartTime.h;
+        let currentM = baseStartTime.m;
+
+        uncompleted.forEach(task => {
+            // Set start time
+            task.startTime = formatTimeStr(currentH, currentM);
+            // We also generate an ISOish time string piece for countdowns in HH:MM Format 
+            // from before AM/PM formatting
+            const pureStartH = currentH.toString().padStart(2, '0');
+            const pureStartM = currentM.toString().padStart(2, '0');
+            task.time = `${pureStartH}:${pureStartM}`; // Keep original 'time' field synced for existing countdown logic/reminders
+            
+            // Add duration
+            const durationMins = (typeof task.durationMins === 'number' && !isNaN(task.durationMins)) ? task.durationMins : 30;
+            currentM += durationMins;
+            currentH += Math.floor(currentM / 60);
+            currentM = currentM % 60;
+            
+            // Set end time
+            task.endTime = formatTimeStr(currentH, currentM);
+            
+            // Generate pure end time for countdowns
+            const pureEndH = currentH.toString().padStart(2, '0');
+            const pureEndM = currentM.toString().padStart(2, '0');
+            task.pureEndTime = `${pureEndH}:${pureEndM}`; 
+        });
+    }
 }
 
 function generateId() {
@@ -260,11 +363,11 @@ function renderTaskList(container, tasks) {
         taskEl.className = `task-card glass-panel ${task.completed ? 'completed' : ''}`;
         
         // Format date/time
-        let timeStr = task.time ? ` at ${task.time}` : '';
+        let timeStr = (task.startTime && task.endTime) ? ` ${task.startTime} - ${task.endTime} (${formatDurationForDisplay(task.durationMins)})` : ' (Unscheduled)';
         let dateStr = new Date(task.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         
-        // Timer info setup
-        const targetDateTime = `${task.date}T${task.time || '23:59:00'}`;
+        // Timer info setup: Countdown to end time instead of start time
+        const targetDateTime = `${task.date}T${task.pureEndTime || '23:59:00'}`;
         const timerHtml = task.completed ? '' : `
             <div class="task-countdown" data-countdown-target="${targetDateTime}">
                 <i class="fa-regular fa-clock"></i> <span>--</span>
@@ -298,7 +401,7 @@ function renderTaskList(container, tasks) {
 }
 
 // --- Task Actions ---
-function toggleTaskCompletion(id) {
+window.toggleTaskCompletion = function toggleTaskCompletion(id) {
     const task = state.tasks.find(t => t.id === id);
     if (task) {
         task.completed = !task.completed;
@@ -306,14 +409,14 @@ function toggleTaskCompletion(id) {
     }
 }
 
-function deleteTask(id) {
+window.deleteTask = function deleteTask(id) {
     if (confirm('Are you sure you want to delete this task?')) {
         state.tasks = state.tasks.filter(t => t.id !== id);
         saveTasks();
     }
 }
 
-function editTask(id) {
+window.editTask = function editTask(id) {
     const task = state.tasks.find(t => t.id === id);
     if (!task) return;
 
@@ -322,7 +425,16 @@ function editTask(id) {
     DOM.taskTitleInput.value = task.title;
     DOM.taskDescInput.value = task.description;
     DOM.taskDateInput.value = task.date;
-    DOM.taskTimeInput.value = task.time || '';
+    
+    // Determine duration to show based on limits
+    let durationVal = (typeof task.durationMins === 'number' && !isNaN(task.durationMins)) ? task.durationMins : 30;
+    let unit = 'minutes';
+    if (durationVal >= 60 && durationVal % 60 === 0) {
+        durationVal = durationVal / 60;
+        unit = 'hours';
+    }
+    DOM.taskDurationInput.value = durationVal;
+    DOM.taskDurationUnit.value = unit;
     
     document.querySelector(`input[name="priority"][value="${task.priority}"]`).checked = true;
     
@@ -349,12 +461,20 @@ function handleFormSubmit(e) {
     e.preventDefault();
     
     const id = DOM.taskIdInput.value || generateId();
+    
+    let durationVal = parseInt(DOM.taskDurationInput.value, 10);
+    if(isNaN(durationVal)) durationVal = 30;
+    const isHours = DOM.taskDurationUnit.value === 'hours';
+    const durationMins = isHours ? durationVal * 60 : durationVal;
+    
     const taskData = {
         id,
         title: DOM.taskTitleInput.value,
         description: DOM.taskDescInput.value,
         date: DOM.taskDateInput.value,
-        time: DOM.taskTimeInput.value,
+        durationMins: durationMins,
+        startTime: null, // Computed by recalculateSchedule
+        endTime: null, // Computed by recalculateSchedule
         priority: document.querySelector('input[name="priority"]:checked').value,
         completed: DOM.taskIdInput.value ? state.tasks.find(t => t.id === id).completed : false,
         notified: false // flag for reminders
@@ -462,10 +582,11 @@ function initEventListeners() {
     DOM.stopwatchPause.addEventListener('click', pauseStopwatch);
     DOM.stopwatchReset.addEventListener('click', resetStopwatch);
 
-    // Make functions globally accessible for inline onclick handlers
-    window.toggleTaskCompletion = toggleTaskCompletion;
-    window.deleteTask = deleteTask;
-    window.editTask = editTask;
+    // Day Start Time Changes
+    DOM.dayStartTimeInput.addEventListener('change', (e) => {
+        localStorage.setItem('antiplanner_start_time', e.target.value);
+        saveTasks();
+    });
 }
 
 // --- Utilities ---
